@@ -43,7 +43,6 @@
   .btn-cancel { background: #fff; color: var(--blue); border: 2px solid var(--blue); }
   .btn-submit { background: var(--blue); color: #fff; border: 2px solid var(--blue); }
   .btn-submit:hover { background: var(--blue-hover); }
-  .saved { text-align: center; color: var(--ok); font-size: 14px; min-height: 1.2em; margin: 10px 0 0; }
   @media (max-width: 640px) { .form { grid-template-columns: 1fr; } .actions button { min-width: 0; flex: 1; } .hint { display: block; margin: 4px 0 0; } }
 </style>
 </head>
@@ -57,7 +56,10 @@
     <span>SStestCernerCST25_2, SStestCernerCST25_2</span>
 
     <label for="noteDate">Date:<span class="req">*</span></label>
-    <div><input id="noteDate" type="date" value="2026-10-05"></div>
+    <div>
+      <input id="noteDate" type="date">
+      <span class="err" id="errDate"></span>
+    </div>
 
     <label for="contactType">Contact type:<span class="req">*</span></label>
     <div>
@@ -133,7 +135,6 @@
     <button type="button" class="btn-cancel" id="cancelBtn">Cancel</button>
     <button type="button" class="btn-submit" id="submitBtn">Submit</button>
   </div>
-  <p class="saved" id="saved" aria-live="polite"></p>
 </div>
 
 <script>
@@ -251,20 +252,39 @@
   $('noteTitle').addEventListener('change', () => $('errTitle').textContent = '');
   $('comments').addEventListener('input', () => $('errComments').textContent = '');
 
-  function resetForm() {
-    clearInterval(timerId); timerId = null; setRunning(false);
-    minEl.value = $('comments').value = $('contactType').value = $('noteTitle').value = '';
-    setStart(null);
-    startSource = null;
+  $('noteDate').addEventListener('input', () => $('errDate').textContent = '');
+
+  // Mock storage shared with past-notes.html
+  const NOTES_KEY = 'mockNotes', AUTHOR = 'SShreeCC SShreeCC';
+  const loadNotes = () => JSON.parse(localStorage.getItem(NOTES_KEY) || '[]');
+  const saveNotes = notes => localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+  const toMin = v => { const [h, m] = v.split(':').map(Number); return h * 60 + m; };
+  const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+
+  // ?edit=<id> opens an existing note for Modify
+  const editId = new URLSearchParams(location.search).get('edit');
+  const editing = editId && loadNotes().find(n => n.id === editId);
+  if (editing) {
+    document.title = $('title').textContent = 'Modify Note';
+    $('noteDate').value = editing.date;
+    $('contactType').value = editing.contactType;
+    $('noteTitle').value = editing.noteTitle;
+    minEl.value = editing.durationMinutes;
+    setStart(toMin(editing.startTime));
+    startSource = 'entered';
+    $('comments').value = editing.comments;
     updateSummary();
-    ['errType', 'errTitle', 'errTime', 'errComments', 'saved'].forEach(id => $(id).textContent = '');
+  } else {
+    $('noteDate').value = today();
   }
-  $('cancelBtn').addEventListener('click', resetForm);
-  $('closeBtn').addEventListener('click', resetForm);
+
+  const backToPastNotes = () => location.href = 'past-notes.html';
+  $('cancelBtn').addEventListener('click', backToPastNotes);
+  $('closeBtn').addEventListener('click', backToPastNotes);
 
   $('submitBtn').addEventListener('click', () => {
     let valid = true;
-    $('saved').textContent = '';
+    if (!$('noteDate').value) { $('errDate').textContent = 'Enter a date'; valid = false; }
     if (!$('contactType').value) { $('errType').textContent = 'Select a contact type'; valid = false; }
     if (!$('noteTitle').value) { $('errTitle').textContent = 'Select a note title'; valid = false; }
     if (timerId) { $('errTime').textContent = 'Stop the timer first'; valid = false; }
@@ -274,6 +294,8 @@
 
     const t = resolveTimes();
     const note = {
+      id: editing ? editing.id : String(Date.now()),
+      author: editing ? editing.author : AUTHOR,
       date: $('noteDate').value,
       contactType: $('contactType').value,
       noteTitle: $('noteTitle').value,
@@ -284,7 +306,8 @@
       comments: $('comments').value.trim()
     };
     console.log('Note payload:', note);
-    $('saved').textContent = `Note saved: ${note.contactType}, ${note.durationMinutes} min (${fmt12(t.start)} – ${fmt12(t.end)})`;
+    saveNotes([...loadNotes().filter(n => n.id !== note.id), note]);
+    location.href = `past-notes.html?saved=${encodeURIComponent(note.id)}${editing ? '&updated' : ''}`;
   });
 </script>
 </body>

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Past Notes</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --blue: #004a98; --blue-hover: #003a78; --text: #333; --muted: #666; --error: #b3261e; --border: #a9a9a9; --line: #ccc; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Poppins", Arial, sans-serif; color: var(--text); background: #7a7a7a; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .modal { background: #fff; width: 100%; max-width: 1300px; min-height: 640px; border-radius: 4px; padding: 24px 36px 48px; position: relative; }
+  .modal h1 { color: var(--blue); font-size: 28px; font-weight: 700; margin: 40px 0 6px; }
+  .close { position: absolute; top: 20px; right: 28px; width: 32px; height: 32px; border: 2px solid var(--blue); border-radius: 50%; background: none; color: var(--blue); font-size: 18px; cursor: pointer; line-height: 1; }
+  .patient { font-size: 17px; margin: 0 0 14px; }
+  .patient span { color: var(--blue); }
+  .filters { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 10px; font-size: 16px; }
+  .filters label { color: var(--blue); font-weight: 500; }
+  .req { color: var(--error); }
+  .divider { width: 1px; height: 32px; background: #333; }
+  input, select { font: inherit; font-size: 15px; border: 1px solid var(--border); padding: 3px 6px; border-radius: 2px; }
+  input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+  .btn { font: inherit; font-size: 14px; font-weight: 700; background: var(--blue); color: #fff; border: none; border-radius: 3px; padding: 6px 26px; cursor: pointer; text-decoration: none; display: inline-block; }
+  .btn:hover { background: var(--blue-hover); }
+  .search-row { text-align: center; margin: 18px 0 0; }
+  .err { display: block; text-align: center; font-size: 13px; color: var(--error); margin-top: 6px; }
+  .err:empty { display: none; }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; margin: 18px 0 12px; }
+  .status { font-size: 14px; color: #2e7d32; }
+  table.notes { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.notes > thead th { background: var(--blue); color: #fff; font-weight: 500; font-size: 16px; text-align: left; padding: 2px 12px; border-left: 1px solid #fff; }
+  table.notes > thead th:first-child { border-left: 0; }
+  .sort { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+  .sort .arrows { font-size: 11px; line-height: 1; opacity: .85; }
+  table.notes > tbody > tr { border-bottom: 3px solid #000; }
+  table.notes > tbody > tr > td { border-left: 1px solid var(--line); padding: 10px; vertical-align: middle; }
+  table.notes > tbody > tr > td:first-child { border-left: 0; }
+  td.date { font-weight: 700; font-size: 15px; white-space: nowrap; width: 145px; }
+  td.author { width: 218px; }
+  td.note { padding: 0 !important; }
+  td.action { width: 102px; white-space: nowrap; }
+  tr.highlight { animation: flash 3s ease-out; }
+  @keyframes flash { from { background: #fff3c4; } to { background: transparent; } }
+  .fields { width: 100%; border-collapse: collapse; }
+  .fields th { width: 120px; text-align: left; font-weight: 700; padding: 6px 10px; border-right: 1px solid var(--line); vertical-align: top; }
+  .fields td { padding: 6px 10px; white-space: pre-wrap; }
+  .fields tr + tr > * { border-top: 1px solid #eee; }
+  .act { all: unset; display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 2px 0; }
+  .act.modify { color: var(--blue); }
+  .act.delete { color: var(--error); }
+  .act:hover { text-decoration: underline; }
+  .empty td { text-align: center; color: var(--muted); padding: 24px !important; }
+  @media (max-width: 760px) { td.author, th.author { display: none; } .toolbar { flex-direction: column-reverse; align-items: flex-end; gap: 8px; } }
+</style>
+</head>
+<body>
+<div class="modal" role="dialog" aria-labelledby="title">
+  <button class="close" aria-label="Close">&#x2715;</button>
+  <h1 id="title">Past Notes</h1>
+  <p class="patient">Patient Name: <span>SStestCernerCST25_2, SStestCernerCST25_2</span></p>
+
+  <div class="filters">
+    <label for="fromDate">For The Period From: <span class="req">*</span></label>
+    <input id="fromDate" type="date">
+    <label for="toDate">To: <span class="req">*</span></label>
+    <input id="toDate" type="date">
+    <span class="divider" aria-hidden="true"></span>
+    <label for="dateRange">Date Range</label>
+    <select id="dateRange">
+      <option value="custom">Custom</option>
+      <option value="7">Last 7 days</option>
+      <option value="15">Last 15 days</option>
+      <option value="30">Last 30 days</option>
+      <option value="90">Last 90 days</option>
+    </select>
+  </div>
+  <div class="search-row"><button type="button" class="btn" id="searchBtn">Search Date Ranges</button></div>
+  <span class="err" id="errRange"></span>
+
+  <div class="toolbar">
+    <span class="status" id="status" aria-live="polite"></span>
+    <a class="btn" href="add-note-timer.html">Add Note</a>
+  </div>
+
+  <table class="notes">
+    <thead>
+      <tr>
+        <th><button type="button" class="sort" id="sortBtn">Date <span class="arrows" id="sortArrow">&#9660;</span></button></th>
+        <th class="author">Author</th>
+        <th>Note</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const NOTES_KEY = 'mockNotes', AUTHOR = 'SShreeCC SShreeCC';
+  const pad = n => String(n).padStart(2, '0');
+  const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return iso(d); };
+  const fmtDate = s => { const [y, m, d] = s.split('-'); return `${m}/${d}/${y}`; };
+  const fmt12 = v => { const [h, m] = v.split(':').map(Number); return `${h % 12 || 12}:${pad(m)} ${h < 12 ? 'AM' : 'PM'}`; };
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  // Mock storage shared with add-note-timer.html; seeded with sample notes on first visit
+  const saveNotes = notes => localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+  function loadNotes() {
+    const saved = localStorage.getItem(NOTES_KEY);
+    if (saved) return JSON.parse(saved);
+    const seed = [
+      { id: 'sample-1', author: AUTHOR, date: daysAgo(2), contactType: 'Phone', noteTitle: 'RPM-HT Tech Education Note/Template',
+        durationMinutes: 15, startTime: '09:30', endTime: '09:45', startTimeSource: 'entered',
+        comments: 'Reviewed how to take a blood pressure reading with the home cuff. Patient demonstrated correct technique.' },
+      { id: 'sample-2', author: AUTHOR, date: daysAgo(9), contactType: 'VVC', noteTitle: 'RPM-HT Periodic Evaluation',
+        durationMinutes: 20, startTime: '13:10', endTime: '13:30', startTimeSource: 'auto',
+        comments: 'Readings within goal range for the past 30 days. No changes to plan.' }
+    ];
+    saveNotes(seed);
+    return seed;
+  }
+
+  let sortDesc = true, range = { from: daysAgo(15), to: iso(new Date()) };
+  const params = new URLSearchParams(location.search), savedId = params.get('saved');
+  $('fromDate').value = range.from;
+  $('toDate').value = range.to;
+
+  function render(highlightId) {
+    const notes = loadNotes()
+      .filter(n => n.date >= range.from && n.date <= range.to)
+      .sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime) * (sortDesc ? -1 : 1));
+    $('sortArrow').innerHTML = sortDesc ? '&#9660;' : '&#9650;';
+    $('rows').innerHTML = notes.length ? notes.map(n => `
+      <tr data-id="${esc(n.id)}"${n.id === highlightId ? ' class="highlight"' : ''}>
+        <td class="date">${fmtDate(n.date)}</td>
+        <td class="author">${esc(n.author)}</td>
+        <td class="note">
+          <table class="fields">
+            <tr><th>Note title</th><td>${esc(n.noteTitle)}</td></tr>
+            <tr><th>Contact type</th><td>${esc(n.contactType)}</td></tr>
+            <tr><th>Time spent</th><td>${n.durationMinutes} min (${fmt12(n.startTime)} &ndash; ${fmt12(n.endTime)})</td></tr>
+            <tr><th>Comments</th><td>${esc(n.comments)}</td></tr>
+          </table>
+        </td>
+        <td class="action">
+          <a class="act modify" href="add-note-timer.html?edit=${encodeURIComponent(n.id)}">&#9998; Modify</a>
+          <button type="button" class="act delete" data-delete="${esc(n.id)}">&#x2715; Delete</button>
+        </td>
+      </tr>`).join('')
+      : '<tr class="empty"><td colspan="4">No notes found for this period.</td></tr>';
+  }
+
+  $('dateRange').addEventListener('change', e => {
+    if (e.target.value === 'custom') return;
+    $('fromDate').value = daysAgo(Number(e.target.value));
+    $('toDate').value = iso(new Date());
+  });
+  ['fromDate', 'toDate'].forEach(id => $(id).addEventListener('input', () => { $('dateRange').value = 'custom'; $('errRange').textContent = ''; }));
+
+  $('searchBtn').addEventListener('click', () => {
+    const from = $('fromDate').value, to = $('toDate').value;
+    if (!from || !to) { $('errRange').textContent = 'Enter both a From and To date'; return; }
+    if (from > to) { $('errRange').textContent = 'From date must be on or before To date'; return; }
+    $('errRange').textContent = $('status').textContent = '';
+    range = { from, to };
+    render();
+  });
+
+  $('sortBtn').addEventListener('click', () => { sortDesc = !sortDesc; render(); });
+
+  $('rows').addEventListener('click', e => {
+    const btn = e.target.closest('[data-delete]');
+    if (!btn) return;
+    const note = loadNotes().find(n => n.id === btn.dataset.delete);
+    if (!note || !confirm(`Delete the ${fmtDate(note.date)} note "${note.noteTitle}"?`)) return;
+    saveNotes(loadNotes().filter(n => n.id !== note.id));
+    $('status').textContent = 'Note deleted.';
+    render();
+  });
+
+  if (savedId) {
+    $('status').textContent = params.has('updated') ? 'Note updated.' : 'Note saved.';
+    history.replaceState(null, '', location.pathname); // so a refresh doesn't re-show the message
+  }
+  render(savedId);
+</script>
+</body>
+</html>
